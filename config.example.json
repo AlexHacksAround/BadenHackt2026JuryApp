@@ -1,0 +1,15 @@
+{
+  "pin": "0000",
+  "app_url": "http://localhost:8080",
+  "judges": ["Judge 1", "Judge 2", "Judge 3"],
+  "teams": [
+    {"name": "Team Alpha", "active": 1},
+    {"name": "Team Beta", "active": 1},
+    {"name": "Team Gamma", "active": 1},
+    {"name": "Team Delta", "active": 0}
+  ],
+  "tech_eval": {
+    "Team Alpha": {"rank": 1, "score": "25/30", "statement": "Strong full-stack implementation.", "ai_usage": "None", "creativity": 4},
+    "Team Beta": {"rank": 2, "score": "22/30", "statement": "Good architecture, needs polish.", "ai_usage": "Copilot", "creativity": 3}
+  }
+}

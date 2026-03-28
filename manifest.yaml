@@ -1,0 +1,10 @@
+---
+applications:
+  - name: badenhackt-judge
+    memory: 256M
+    disk_quota: 512M
+    buildpacks:
+      - python_buildpack
+    command: gunicorn app:app --bind 0.0.0.0:$PORT
+    env:
+      FLASK_ENV: production

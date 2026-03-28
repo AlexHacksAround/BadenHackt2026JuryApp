@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baden Hackt 2026 — Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>tailwind.config = { theme: { extend: { colors: {
+  duck: { 50:'#fef7e8', 100:'#fdecc6', 200:'#fbd788', 300:'#f6bc4a', 400:'#e8941a', 500:'#d47a0a', 600:'#a85c06', 700:'#7a4208', 800:'#5c340e', 900:'#1a1a1a' }
+}}}}</script>
+</head>
+<body class="bg-duck-900 min-h-screen flex items-center justify-center">
+
+<div class="max-w-sm w-full mx-4">
+  <div class="text-center mb-8">
+    <img src="/static/logo.png" alt="Baden Hackt" class="h-28 mx-auto mb-4">
+    <h1 class="text-2xl font-bold text-white"><span class="text-duck-400">{</span>baden: <span class="text-duck-400">hackt}</span> 2026</h1>
+    <p class="text-gray-400 mt-1">Jury Bewertungstool</p>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-2xl p-6">
+    <h2 class="font-semibold text-duck-900 mb-4 text-center">PIN eingeben</h2>
+
+    <div class="flex justify-center gap-3 mb-4" id="pinDots">
+      <div class="w-4 h-4 rounded-full border-2 border-duck-300 pin-dot"></div>
+      <div class="w-4 h-4 rounded-full border-2 border-duck-300 pin-dot"></div>
+      <div class="w-4 h-4 rounded-full border-2 border-duck-300 pin-dot"></div>
+      <div class="w-4 h-4 rounded-full border-2 border-duck-300 pin-dot"></div>
+    </div>
+
+    <p id="pinError" class="text-red-500 text-center text-sm mb-3 hidden">Falscher PIN</p>
+
+    <div class="grid grid-cols-3 gap-3 max-w-[240px] mx-auto">
+      <button onclick="addDigit('1')" class="pin-key">1</button>
+      <button onclick="addDigit('2')" class="pin-key">2</button>
+      <button onclick="addDigit('3')" class="pin-key">3</button>
+      <button onclick="addDigit('4')" class="pin-key">4</button>
+      <button onclick="addDigit('5')" class="pin-key">5</button>
+      <button onclick="addDigit('6')" class="pin-key">6</button>
+      <button onclick="addDigit('7')" class="pin-key">7</button>
+      <button onclick="addDigit('8')" class="pin-key">8</button>
+      <button onclick="addDigit('9')" class="pin-key">9</button>
+      <button onclick="clearPin()" class="pin-key text-sm text-gray-500">C</button>
+      <button onclick="addDigit('0')" class="pin-key">0</button>
+      <button onclick="backspace()" class="pin-key text-sm text-gray-500">←</button>
+    </div>
+  </div>
+
+  <!-- QR Code -->
+  <div class="text-center mt-6">
+    <p class="text-gray-400 text-xs mb-2">App-Link teilen:</p>
+    <div class="bg-white rounded-xl p-3 inline-block">
+      <div id="loginQR" class="w-32 h-32"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .pin-key {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    border: 2px solid #e2e8f0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    background: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pin-key:active { background: #fdecc6; border-color: #e8941a; transform: scale(0.95); }
+  .pin-dot.filled { background: #e8941a; border-color: #e8941a; }
+  .shake { animation: shake 0.4s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+</style>
+
+<script>
+let pin = '';
+const dots = document.querySelectorAll('.pin-dot');
+
+function updateDots() {
+  dots.forEach((d, i) => d.classList.toggle('filled', i < pin.length));
+}
+
+function addDigit(d) {
+  if (pin.length >= 4) return;
+  pin += d;
+  updateDots();
+  document.getElementById('pinError').classList.add('hidden');
+  if (pin.length === 4) submitPin();
+}
+
+function clearPin() { pin = ''; updateDots(); }
+function backspace() { pin = pin.slice(0, -1); updateDots(); }
+
+async function submitPin() {
+  const res = await fetch('/api/pin-check', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({pin})
+  });
+  if (res.ok) {
+    window.location.href = '/';
+  } else {
+    document.getElementById('pinError').classList.remove('hidden');
+    document.getElementById('pinDots').classList.add('shake');
+    setTimeout(() => {
+      document.getElementById('pinDots').classList.remove('shake');
+      clearPin();
+    }, 400);
+  }
+}
+
+// Generate QR
+var qr = qrcode(0, 'M');
+qr.addData('{{ app_url }}');
+qr.make();
+document.getElementById('loginQR').innerHTML = qr.createSvgTag({cellSize: 4, margin: 0});
+</script>
+</body>
+</html>
