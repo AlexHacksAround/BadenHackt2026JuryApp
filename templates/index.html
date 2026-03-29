@@ -91,6 +91,8 @@ function toggleQR() {
           <th class="px-4 py-3 text-center hidden md:table-cell text-xs">{{ label[:8] }}.</th>
           {% endfor %}
           <th class="px-4 py-3 text-center">Ø Total</th>
+          <th class="px-4 py-3 text-center hidden sm:table-cell">Faktor</th>
+          <th class="px-4 py-3 text-center">Gewichtet</th>
           <th class="px-4 py-3 text-center hidden sm:table-cell">Tech</th>
           <th class="px-4 py-3 text-center">Juroren</th>
         </tr>
@@ -133,12 +135,17 @@ async function refreshDashboard() {
     });
     const te = dashTechEval[t.team];
     const techBadge = te && te.rank ? `<span class="text-xs font-medium text-gray-500">#${te.rank} ${te.score}</span>` : '<span class="text-gray-300">—</span>';
+    const jf = t.jury_factor || 1.0;
+    const jfDisplay = jf !== 1.0 ? `<span class="font-bold ${jf > 1 ? 'text-green-600' : 'text-red-500'}">${jf.toFixed(1)}x</span>` : `<span class="text-gray-400">1.0x</span>`;
+    const wt = t.weighted_total || 0;
     lb.innerHTML += `
       <tr class="${highlight} ${i < 3 ? 'font-semibold' : ''}">
         <td class="px-4 py-3 text-xl">${duck}</td>
         <td class="px-4 py-3 font-medium">${t.team}</td>
         ${critCells}
-        <td class="px-4 py-3 text-center text-lg font-bold ${t.avg_total > 0 ? 'text-duck-500' : 'text-gray-400'}">${t.avg_total > 0 ? t.avg_total : '-'}</td>
+        <td class="px-4 py-3 text-center text-gray-500">${t.avg_total > 0 ? t.avg_total : '-'}</td>
+        <td class="px-4 py-3 text-center hidden sm:table-cell">${jfDisplay}</td>
+        <td class="px-4 py-3 text-center text-lg font-bold ${wt > 0 ? 'text-duck-500' : 'text-gray-400'}">${wt > 0 ? wt : '-'}</td>
         <td class="px-4 py-3 text-center hidden sm:table-cell">${techBadge}</td>
         <td class="px-4 py-3 text-center text-gray-500">${t.num_judges}/${Object.keys(data.judge_progress).length}</td>
       </tr>`;
@@ -203,6 +210,16 @@ setInterval(refreshDashboard, 10000);
 
     <button onclick="saveActiveTeams()" class="mt-3 bg-duck-900 text-white px-4 py-2 rounded-lg hover:bg-black font-medium">
       Auswahl speichern
+    </button>
+  </div>
+
+  <!-- Jury Factor -->
+  <div class="bg-white rounded-xl shadow p-4 mb-6 border border-duck-200">
+    <h2 class="font-semibold text-duck-900 mb-1">Jury-Faktor</h2>
+    <p class="text-xs text-gray-500 mb-3">Gewichtung pro Team (0.0–2.0). Standard = 1.0. Verändert die Rangliste im Dashboard.</p>
+    <div class="space-y-2" id="juryFactorList"></div>
+    <button onclick="saveJuryFactors()" class="mt-3 bg-duck-900 text-white px-4 py-2 rounded-lg hover:bg-black font-medium">
+      Faktoren speichern
     </button>
   </div>
 
@@ -319,9 +336,61 @@ async function loadAdmin() {
 
 loadTeamManager();
 loadJudgeManager();
+loadJuryFactors();
 loadAdmin();
 loadVersions();
 setInterval(loadAdmin, 15000);
+
+async function loadJuryFactors() {
+  const res = await fetch('/api/jury-factors');
+  const data = await res.json();
+  const list = document.getElementById('juryFactorList');
+  list.innerHTML = '';
+  data.forEach(t => {
+    const v = t.jury_factor;
+    const isModified = v !== 1.0;
+    list.innerHTML += `
+      <div class="flex items-center gap-2 p-2 rounded-lg border ${isModified ? 'border-duck-400 bg-duck-50' : 'border-gray-100'}" data-team="${t.team_name}">
+        <span class="flex-1 text-sm font-medium truncate">${t.team_name}</span>
+        <button onclick="adjustFactor('${t.team_name}', -0.1)" class="w-9 h-9 rounded-lg bg-gray-200 hover:bg-red-100 text-lg font-bold flex items-center justify-center">−</button>
+        <span class="text-base font-bold w-12 text-center ${isModified ? 'text-duck-500' : 'text-gray-400'}" id="jfv-${CSS.escape(t.team_name)}">${v.toFixed(1)}x</span>
+        <button onclick="adjustFactor('${t.team_name}', +0.1)" class="w-9 h-9 rounded-lg bg-gray-200 hover:bg-green-100 text-lg font-bold flex items-center justify-center">+</button>
+      </div>`;
+  });
+}
+
+const juryFactorState = {};
+
+function adjustFactor(team, delta) {
+  if (!(team in juryFactorState)) {
+    const el = document.getElementById('jfv-' + CSS.escape(team));
+    juryFactorState[team] = parseFloat(el.textContent);
+  }
+  let v = juryFactorState[team] + delta;
+  v = Math.round(Math.max(0, Math.min(2, v)) * 10) / 10;
+  juryFactorState[team] = v;
+  const el = document.getElementById('jfv-' + CSS.escape(team));
+  el.textContent = v.toFixed(1) + 'x';
+  el.className = `text-base font-bold w-12 text-center ${v !== 1.0 ? 'text-duck-500' : 'text-gray-400'}`;
+  el.closest('[data-team]').className = `flex items-center gap-2 p-2 rounded-lg border ${v !== 1.0 ? 'border-duck-400 bg-duck-50' : 'border-gray-100'}`;
+}
+
+async function saveJuryFactors() {
+  // Collect all current values from display
+  const factors = {};
+  document.querySelectorAll('[id^="jfv-"]').forEach(el => {
+    const team = el.closest('[data-team]').dataset.team;
+    factors[team] = parseFloat(el.textContent);
+  });
+  const res = await fetch('/api/jury-factors', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({factors})
+  });
+  if (res.ok) {
+    alert('Jury-Faktoren gespeichert!');
+    loadJuryFactors();
+  }
+}
 
 async function loadJudgeManager() {
   const res = await fetch('/api/judges');

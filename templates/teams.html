@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baden Hackt 2026 — Team Feedback</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>tailwind.config = { theme: { extend: { colors: {
+  duck: { 50:'#fef7e8', 100:'#fdecc6', 200:'#fbd788', 300:'#f6bc4a', 400:'#e8941a', 500:'#d47a0a', 600:'#a85c06', 700:'#7a4208', 800:'#5c340e', 900:'#1a1a1a' }
+}}}}</script>
+</head>
+<body class="bg-duck-50 min-h-screen">
+
+<nav class="bg-duck-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-lg">
+  <a href="/teams" class="flex items-center gap-2 font-bold text-lg">
+    <img src="/static/logo.png" alt="Logo" class="h-8 w-auto">
+    <span class="text-duck-400">{</span>baden: <span class="text-duck-400">hackt}</span> <span class="text-duck-300 font-normal text-sm ml-1">Team Feedback</span>
+  </a>
+  <button onclick="toggleQR()" class="hover:text-duck-400 transition" title="QR-Code anzeigen">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM17 14h3v3h-3zM14 17h3v3h-3zM17 20h3v0h-3z"/></svg>
+  </button>
+</nav>
+
+<div id="qrModal" class="fixed inset-0 bg-black/60 z-[60] hidden items-center justify-center" onclick="toggleQR()">
+  <div class="bg-white rounded-2xl p-6 text-center shadow-2xl" onclick="event.stopPropagation()">
+    <h3 class="font-bold text-duck-900 text-lg mb-2">Team Feedback teilen</h3>
+    <div id="navQR" class="mx-auto mb-3"></div>
+    <p class="text-xs text-gray-500">Scanne den QR-Code um dein Feedback zu sehen</p>
+    <button onclick="toggleQR()" class="mt-3 text-duck-500 text-sm font-medium hover:underline">Schliessen</button>
+  </div>
+</div>
+
+<script>
+function toggleQR() {
+  const m = document.getElementById('qrModal');
+  m.classList.toggle('hidden');
+  m.classList.toggle('flex');
+  if (!document.getElementById('navQR').innerHTML) {
+    var qr = qrcode(0, 'M');
+    qr.addData('{{ app_url }}/teams');
+    qr.make();
+    document.getElementById('navQR').innerHTML = qr.createSvgTag({cellSize: 5, margin: 0});
+  }
+}
+</script>
+
+{% if selected_team %}
+<!-- ==================== TEAM DETAIL ==================== -->
+{% set fb = feedback[selected_team] %}
+{% set te = tech_eval.get(selected_team, {}) %}
+<div class="max-w-2xl mx-auto p-4">
+  <a href="/teams" class="text-duck-500 text-sm hover:underline mb-3 inline-block">← Alle Teams</a>
+
+  <div class="bg-white rounded-2xl shadow-lg border border-duck-200 overflow-hidden">
+    <!-- Header -->
+    <div class="bg-duck-900 text-white p-5">
+      <h1 class="text-2xl font-bold">🐤 {{ selected_team }}</h1>
+      {% if te.rank %}
+      <div class="flex items-center gap-3 mt-2">
+        <span class="bg-duck-400 text-duck-900 px-3 py-1 rounded-full text-sm font-bold">#{{ te.rank }} von 28</span>
+        <span class="bg-white/20 px-3 py-1 rounded-full text-sm">{{ te.score }}</span>
+        {% if te.creativity %}
+        <span class="text-sm">Kreativität: {{ '🐤' * te.creativity }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Achievement -->
+    <div class="p-5 border-b border-duck-100">
+      <h2 class="text-lg font-bold text-duck-900 mb-2">Was ihr erreicht habt</h2>
+      <p class="text-gray-700 leading-relaxed">{{ fb.achievement }}</p>
+    </div>
+
+    <!-- Creativity -->
+    <div class="p-5 border-b border-duck-100 bg-duck-50">
+      <h2 class="text-lg font-bold text-duck-900 mb-2">Kreativität &amp; Besonderes</h2>
+      <p class="text-gray-700 leading-relaxed">{{ fb.creativity }}</p>
+    </div>
+
+    <!-- Tech Details -->
+    {% if te.rank %}
+    <div class="p-5 border-b border-duck-100">
+      <h2 class="text-lg font-bold text-duck-900 mb-3">Technische Details</h2>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div class="bg-gray-50 rounded-lg p-3">
+          <span class="text-gray-500 block text-xs">Score</span>
+          <span class="font-bold text-duck-500 text-lg">{{ te.score }}</span>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3">
+          <span class="text-gray-500 block text-xs">Rang</span>
+          <span class="font-bold text-lg">#{{ te.rank }} von 28</span>
+        </div>
+        {% if te.ai_usage %}
+        <div class="bg-gray-50 rounded-lg p-3">
+          <span class="text-gray-500 block text-xs">KI-Tools</span>
+          <span class="font-medium">{{ te.ai_usage }}</span>
+        </div>
+        {% endif %}
+        {% if te.creativity %}
+        <div class="bg-gray-50 rounded-lg p-3">
+          <span class="text-gray-500 block text-xs">Kreativität</span>
+          <span class="font-medium">{{ te.creativity }}/5 {{ '🐤' * te.creativity }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Improvement Suggestions -->
+    <div class="p-5 bg-duck-50">
+      <h2 class="text-lg font-bold text-duck-900 mb-3">💡 Tipps für die nächsten 24 Stunden</h2>
+      <div class="space-y-3">
+        {% for tip in fb.improve %}
+        <div class="flex gap-3 bg-white rounded-lg p-3 border border-duck-200">
+          <span class="text-duck-400 font-bold text-lg mt-0.5">{{ loop.index }}.</span>
+          <p class="text-gray-700 text-sm leading-relaxed">{{ tip }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center mt-6">
+    <a href="/teams" class="text-duck-500 hover:underline">← Zurück zur Übersicht</a>
+  </div>
+</div>
+
+{% else %}
+<!-- ==================== TEAM SELECTION ==================== -->
+<div class="max-w-2xl mx-auto p-4 mt-4">
+  <div class="text-center mb-6">
+    <img src="/static/logo.png" alt="Baden Hackt" class="h-20 mx-auto mb-3">
+    <h1 class="text-3xl font-bold text-duck-900"><span class="text-duck-400">{</span>baden: <span class="text-duck-400">hackt}</span> 2026</h1>
+    <p class="text-gray-500 mt-1">KI-Technische Bewertung — Team Feedback</p>
+    <p class="text-sm text-gray-400 mt-1">Wähle dein Team um dein persönliches Feedback zu sehen</p>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    {% for team in all_teams | sort %}
+    {% set te = tech_eval.get(team, {}) %}
+    {% set has_feedback = team in feedback and feedback[team].achievement and 'nicht bewerten' not in feedback[team].achievement %}
+    <a href="/teams/{{ team }}"
+       class="bg-white rounded-xl border-2 {{ 'border-duck-200 hover:border-duck-400' if has_feedback else 'border-gray-100 hover:border-gray-300' }} p-3 transition hover:shadow-md text-center">
+      <div class="font-semibold text-sm text-duck-900 mb-1">{{ team }}</div>
+      {% if te.rank %}
+      <div class="text-xs text-duck-500 font-medium">#{{ te.rank }} · {{ te.score }}</div>
+      {% else %}
+      <div class="text-xs text-gray-400">Nicht von Claude bewertet</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+</body>
+</html>

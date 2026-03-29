@@ -3,21 +3,42 @@
 set -e
 
 APP_URL="https://badenhackt-judge.cfapps.us10-001.hana.ondemand.com"
-BACKUP_FILE="backup_state.json"
+BACKUP_DIR="backups"
+mkdir -p "$BACKUP_DIR"
 
 echo "=== Baden Hackt Judge App Deploy ==="
 
-# Step 1: Backup current state (if app is running)
+# Step 1: Backup current state with timestamp
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.json"
+
 echo ">> Backing up current state..."
 HTTP_CODE=$(curl -s -o "$BACKUP_FILE" -w "%{http_code}" "$APP_URL/api/backup" 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "200" ]; then
+    SCORES=$(python3 -c "import json; d=json.load(open('$BACKUP_FILE')); print(len(d['scores']))")
     TEAMS=$(python3 -c "import json; d=json.load(open('$BACKUP_FILE')); print(len(d['teams']))")
     JUDGES=$(python3 -c "import json; d=json.load(open('$BACKUP_FILE')); print(len(d['judges']))")
-    SCORES=$(python3 -c "import json; d=json.load(open('$BACKUP_FILE')); print(len(d['scores']))")
-    echo "   Backed up: $TEAMS teams, $JUDGES judges, $SCORES scores"
+    echo "   Saved: $BACKUP_FILE ($TEAMS teams, $JUDGES judges, $SCORES scores)"
 else
-    echo "   No running app found (first deploy or app down). Skipping backup."
+    echo "   App not reachable. No new backup."
     rm -f "$BACKUP_FILE"
+fi
+
+# Find best backup (most scores)
+BEST_BACKUP=$(python3 -c "
+import json, glob, os
+best, best_n = None, -1
+for f in sorted(glob.glob('${BACKUP_DIR}/backup_*.json')):
+    try:
+        n = len(json.load(open(f))['scores'])
+        if n >= best_n:
+            best, best_n = f, n
+    except: pass
+if best: print(best)
+")
+if [ -n "$BEST_BACKUP" ]; then
+    BEST_SCORES=$(python3 -c "import json; print(len(json.load(open('$BEST_BACKUP'))['scores']))")
+    echo "   Best backup: $BEST_BACKUP ($BEST_SCORES scores)"
 fi
 
 # Step 2: Clean local artifacts
@@ -39,23 +60,22 @@ for i in $(seq 1 10); do
     sleep 3
 done
 
-# Step 5: Restore state
-if [ -f "$BACKUP_FILE" ]; then
-    echo ">> Restoring state..."
+# Step 5: Restore from best backup
+if [ -n "$BEST_BACKUP" ]; then
+    echo ">> Restoring from: $BEST_BACKUP"
     RESTORE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$APP_URL/api/restore" \
         -H "Content-Type: application/json" \
-        -d @"$BACKUP_FILE")
+        -d @"$BEST_BACKUP")
     if [ "$RESTORE_CODE" = "200" ]; then
         echo "   State restored successfully!"
     else
-        echo "   WARNING: Restore failed (HTTP $RESTORE_CODE). Backup saved in $BACKUP_FILE"
+        echo "   WARNING: Restore failed (HTTP $RESTORE_CODE)"
     fi
 else
-    echo ">> No backup to restore (fresh deploy)."
+    echo ">> No backup to restore."
 fi
 
 echo ""
 echo "=== Deploy complete ==="
 echo "App URL: $APP_URL"
-echo "Admin:   $APP_URL/admin"
-echo "Dashboard: $APP_URL/dashboard"
+echo "Backups: $(ls ${BACKUP_DIR}/backup_*.json 2>/dev/null | wc -l | tr -d ' ') versions in ${BACKUP_DIR}/"

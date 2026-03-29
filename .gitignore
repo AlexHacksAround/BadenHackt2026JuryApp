@@ -3,6 +3,9 @@ scores.db
 config.json
 default_state.json
 backup_state.json
+backup_state_safe.json
+local_backup.json
+backups/
 
 # Python
 __pycache__/
